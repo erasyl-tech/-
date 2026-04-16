@@ -1,4 +1,0 @@
-Options -Indexes
-<FilesMatch "\.(php|inc)$">
-    Require all denied
-</FilesMatch>
