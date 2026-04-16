@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rahoot | Күту бөлмесі</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Rahoot анимациялық фон элементтері */
+        .bg-circle {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.05);
+            pointer-events: none;
+            animation: float 20s infinite ease-in-out;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(180deg); }
+        }
+
+        .waiting-container {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Rahoot стиліндегі лого */
+        .logo {
+            margin-bottom: 2rem;
+        }
+
+        .logo-icon {
+            font-size: 4rem;
+            filter: drop-shadow(0 10px 20px rgba(0,0,0,0.2));
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        /* Код дисплейі */
+        .code-display {
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 30px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .code-label {
+            color: rgba(255,255,255,0.7);
+            font-size: 0.9rem;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+        }
+
+        .code-value {
+            font-size: 3rem;
+            font-weight: 800;
+            color: white;
+            letter-spacing: 10px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        /* Rahoot стиліндегі карточка */
+        .waiting-card {
+            background: white;
+            border-radius: 40px;
+            padding: 40px 30px;
+            box-shadow: 0 30px 50px rgba(0,0,0,0.2);
+        }
+
+        .waiting-title {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .test-name {
+            font-size: 1.2rem;
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 25px;
+        }
+
+        /* Анимациялық спиннер */
+        .spinner {
+            width: 60px;
+            height: 60px;
+            margin: 20px auto;
+            position: relative;
+        }
+
+        .spinner div {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 4px solid transparent;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+        }
+
+        .spinner div:nth-child(1) { animation-delay: -0.45s; }
+        .spinner div:nth-child(2) { animation-delay: -0.3s; }
+        .spinner div:nth-child(3) { animation-delay: -0.15s; }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Қатысушылар саны */
+        .participants-info {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 2px solid #f0f0f0;
+        }
+
+        .participants-count {
+            font-size: 2rem;
+            font-weight: 800;
+            color: #667eea;
+        }
+
+        .participants-label {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        /* Кнопкалар */
+        .cancel-btn {
+            background: #f0f0f0;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 30px;
+            font-weight: 600;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 20px;
+        }
+
+        .cancel-btn:hover {
+            background: #e0e0e0;
+            transform: scale(1.02);
+        }
+
+        /* Жүктеу анимациясы */
+        .dots {
+            display: inline-flex;
+            gap: 4px;
+        }
+
+        .dots span {
+            width: 8px;
+            height: 8px;
+            background: #667eea;
+            border-radius: 50%;
+            animation: dotPulse 1.4s infinite ease-in-out;
+        }
+
+        .dots span:nth-child(2) { animation-delay: 0.2s; }
+        .dots span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes dotPulse {
+            0%, 60%, 100% { transform: scale(1); opacity: 0.5; }
+            30% { transform: scale(1.5); opacity: 1; }
+        }
+
+        @media (max-width: 600px) {
+            .code-value { font-size: 1.8rem; letter-spacing: 5px; }
+            .waiting-title { font-size: 1.3rem; }
+            .waiting-card { padding: 25px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="bgCircles"></div>
+    
+    <div class="waiting-container">
+        <div class="logo">
+            <div class="logo-icon">🎮</div>
+        </div>
+        
+        <div class="code-display">
+            <div class="code-label">ОЙЫН КОДЫ</div>
+            <div class="code-value" id="sessionCodeDisplay"></div>
+        </div>
+        
+        <div class="waiting-card">
+            <div class="waiting-title">
+                <span id="waitingMessage">Күту бөлмесіне қосылдыңыз</span>
+                <div class="dots" style="display: inline-flex; margin-left: 5px;">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+            <div class="test-name" id="testNameDisplay"></div>
+            
+            <div class="spinner">
+                <div></div><div></div><div></div>
+            </div>
+            
+            <p style="color: #666; margin-top: 15px;">
+                Админ тестті бастағанша күтіңіз...
+            </p>
+            
+            <div class="participants-info">
+                <div class="participants-count" id="participantCount">0</div>
+                <div class="participants-label">қатысушы қосылды</div>
+            </div>
+            
+            <button class="cancel-btn" onclick="leaveGame()">🚪 Бас бетке оралу</button>
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        let sessionCode = localStorage.getItem('sessionCode');
+        let participantName = localStorage.getItem('participantName');
+        let participantId = localStorage.getItem('participantId');
+        let reconnectAttempts = 0;
+        let reconnectTimer = null;
+
+        if (!sessionCode || !participantName) {
+            window.location.href = '/';
+        }
+
+        document.getElementById('sessionCodeDisplay').innerHTML = sessionCode;
+
+        // Rahoot стиліндегі фон анимациясы
+        function createBackgroundCircles() {
+            const container = document.getElementById('bgCircles');
+            for (let i = 0; i < 8; i++) {
+                const circle = document.createElement('div');
+                circle.className = 'bg-circle';
+                const size = Math.random() * 200 + 50;
+                circle.style.width = size + 'px';
+                circle.style.height = size + 'px';
+                circle.style.left = Math.random() * 100 + '%';
+                circle.style.top = Math.random() * 100 + '%';
+                circle.style.animationDelay = Math.random() * 10 + 's';
+                circle.style.animationDuration = Math.random() * 20 + 15 + 's';
+                container.appendChild(circle);
+            }
+        }
+        createBackgroundCircles();
+
+        function connectSocket() {
+            if (socket) socket.disconnect();
+            
+            socket = io();
+            
+            socket.on('connect', () => {
+                console.log('Socket қосылды');
+                reconnectAttempts = 0;
+                if (reconnectTimer) clearTimeout(reconnectTimer);
+                
+                socket.emit('reconnect-session', {
+                    sessionCode: sessionCode,
+                    participantName: participantName,
+                    participantId: participantId
+                });
+            });
+            
+            socket.on('reconnect-success', (data) => {
+                console.log('Қайта қосылу сәтті', data);
+                document.getElementById('testNameDisplay').innerHTML = data.testName;
+                
+                if (data.started) {
+                    // Егер тест басталған болса, ойынға өту
+                    localStorage.setItem('currentQuestionIndex', data.currentQuestionIndex);
+                    localStorage.setItem('userAnswers', JSON.stringify(data.answers));
+                    window.location.href = '/game/' + sessionCode;
+                }
+            });
+            
+            socket.on('session-info', (data) => {
+                document.getElementById('testNameDisplay').innerHTML = data.testName;
+                document.getElementById('participantCount').innerHTML = data.participantCount;
+            });
+            
+            socket.on('participants-update', (participants) => {
+                document.getElementById('participantCount').innerHTML = participants.length;
+            });
+            
+            socket.on('test-started', (data) => {
+                // Тест басталды, ойын бетіне өту
+                localStorage.setItem('timeLimit', data.timeLimit);
+                window.location.href = '/game/' + sessionCode;
+            });
+            
+            socket.on('join-error', (msg) => {
+                alert(msg);
+                window.location.href = '/';
+            });
+            
+            socket.on('disconnect', () => {
+                console.log('Socket ажырады, қайта қосылу әрекеті...');
+                if (reconnectAttempts < 10) {
+                    reconnectAttempts++;
+                    reconnectTimer = setTimeout(() => {
+                        connectSocket();
+                    }, 2000 * reconnectAttempts);
+                } else {
+                    alert('Серверге қосылу мүмкін емес. Бетті жаңартыңыз.');
+                }
+            });
+        }
+        
+        connectSocket();
+        
+        function leaveGame() {
+            if (socket) socket.disconnect();
+            localStorage.removeItem('sessionCode');
+            localStorage.removeItem('participantName');
+            localStorage.removeItem('participantId');
+            localStorage.removeItem('currentQuestionIndex');
+            localStorage.removeItem('userAnswers');
+            window.location.href = '/';
+        }
+        
+        // Бетті жапқанда немесе жаңартқанда сессия сақталады
+        window.addEventListener('beforeunload', () => {
+            if (socket) socket.disconnect();
+        });
+    </script>
+</body>
+</html>

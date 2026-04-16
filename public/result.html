@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rahoot | Нәтижелер</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px 20px;
+        }
+
+        .result-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        /* Анимациялық карточка */
+        .score-card {
+            background: white;
+            border-radius: 50px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            animation: slideDown 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 30px 50px rgba(0,0,0,0.2);
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .score-icon {
+            font-size: 4rem;
+            margin-bottom: 15px;
+            animation: bounce 0.6s ease-out;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+
+        .score-value {
+            font-size: 4rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin: 10px 0;
+        }
+
+        .score-label {
+            color: #666;
+            font-size: 1rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 2px solid #f0f0f0;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        /* Рейтинг */
+        .rank-card {
+            background: white;
+            border-radius: 30px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+            animation: fadeIn 0.6s ease-out 0.2s both;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .rank-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .rank-badge {
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+        }
+
+        /* Қате сұрақтар */
+        .wrong-answers-card {
+            background: white;
+            border-radius: 30px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+            animation: fadeIn 0.6s ease-out 0.4s both;
+        }
+
+        .wrong-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: #ef4444;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .wrong-question {
+            background: #fef2f2;
+            border-radius: 20px;
+            padding: 18px;
+            margin-bottom: 15px;
+            border-left: 4px solid #ef4444;
+        }
+
+        .wrong-question-text {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .answer-details {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+
+        .user-answer {
+            color: #ef4444;
+            background: #fee2e2;
+            padding: 4px 12px;
+            border-radius: 20px;
+        }
+
+        .correct-answer {
+            color: #22c55e;
+            background: #dcfce7;
+            padding: 4px 12px;
+            border-radius: 20px;
+        }
+
+        /* Кнопка */
+        .home-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            color: white;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            animation: fadeIn 0.6s ease-out 0.6s both;
+        }
+
+        .home-btn:hover {
+            transform: scale(1.02);
+            box-shadow: 0 10px 25px rgba(102,126,234,0.4);
+        }
+
+        /* Жауап жоқ болғанда */
+        .no-answer {
+            color: #f59e0b;
+            background: #fef3c7;
+            padding: 4px 12px;
+            border-radius: 20px;
+        }
+
+        @media (max-width: 600px) {
+            .score-value { font-size: 2.5rem; }
+            .stats-grid { grid-template-columns: repeat(3, 1fr); }
+            .wrong-question { padding: 12px; }
+            .answer-details { flex-direction: column; gap: 8px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="result-container">
+        <div class="score-card">
+            <div class="score-icon">🏆</div>
+            <div class="score-value" id="scoreDisplay">0%</div>
+            <div class="score-label">Сіздің нәтижеңіз</div>
+            
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-number" id="correctCount">0</div>
+                    <div class="stat-label">дұрыс жауап</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="totalQuestions">0</div>
+                    <div class="stat-label">барлық сұрақ</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="timeSpent">0</div>
+                    <div class="stat-label">уақыт</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="rank-card" id="rankCard" style="display: none;">
+            <div class="rank-title">
+                📊 Рейтингтегі орныңыз
+                <span class="rank-badge" id="rankBadge"></span>
+            </div>
+            <div id="rankInfo"></div>
+        </div>
+
+        <div class="wrong-answers-card" id="wrongAnswersCard" style="display: none;">
+            <div class="wrong-title">
+                ❌ Қате сұрақтар
+                <span id="wrongCount"></span>
+            </div>
+            <div id="wrongAnswersList"></div>
+        </div>
+
+        <button class="home-btn" onclick="goHome()">🏠 Басты бетке оралу</button>
+    </div>
+
+    <script>
+        let sessionCode = localStorage.getItem('sessionCode');
+        let resultData = null;
+
+        if (!sessionCode) {
+            window.location.href = '/';
+        }
+
+        // Нәтижені алу
+        const savedResult = localStorage.getItem('testResult_' + sessionCode);
+        if (savedResult) {
+            resultData = JSON.parse(savedResult);
+            displayResult(resultData);
+        } else {
+            // Серверден нәтижені күту
+            const socket = io();
+            socket.on('connect', () => {
+                socket.emit('get-result', { sessionCode: sessionCode });
+            });
+            socket.on('result-data', (data) => {
+                resultData = data;
+                displayResult(data);
+            });
+            socket.on('test-result', (data) => {
+                resultData = data;
+                displayResult(data);
+                localStorage.setItem('testResult_' + sessionCode, JSON.stringify(data));
+            });
+            
+            // Таймаут
+            setTimeout(() => {
+                if (!resultData) {
+                    document.querySelector('.score-card').innerHTML = '<div style="padding:40px;">⏳ Нәтиже жүктелуде...</div>';
+                }
+            }, 2000);
+        }
+
+        function displayResult(data) {
+            // Негізгі статистика
+            document.getElementById('scoreDisplay').innerHTML = `${data.score}%`;
+            document.getElementById('correctCount').innerHTML = `${data.correctCount}`;
+            document.getElementById('totalQuestions').innerHTML = `${data.totalQuestions}`;
+            
+            const minutes = Math.floor(data.timeSpent / 60);
+            const seconds = data.timeSpent % 60;
+            document.getElementById('timeSpent').innerHTML = `${minutes}м ${seconds}с`;
+            
+            // Рейтинг
+            if (data.rank && data.totalParticipants) {
+                document.getElementById('rankCard').style.display = 'block';
+                document.getElementById('rankBadge').innerHTML = `${data.rank} / ${data.totalParticipants}`;
+                
+                let rankText = '';
+                if (data.rank === 1) {
+                    rankText = '🎉 Құттықтаймыз! Сіз 1-ші орын алдыңыз! 🎉';
+                } else if (data.rank === 2) {
+                    rankText = '🥈 Сіз 2-ші орын алдыңыз! Керемет!';
+                } else if (data.rank === 3) {
+                    rankText = '🥉 Сіз 3-ші орын алдыңыз! Жарайсыз!';
+                } else {
+                    rankText = `Сіз ${data.rank}-ші орындасыз. Келесі жолы жақсырақ нәтиже көрсетіңіз!`;
+                }
+                document.getElementById('rankInfo').innerHTML = `<p style="color:#666;">${rankText}</p>`;
+            }
+            
+            // Қате сұрақтар
+            const wrongAnswers = data.answers.filter(a => !a.isCorrect);
+            if (wrongAnswers.length > 0) {
+                document.getElementById('wrongAnswersCard').style.display = 'block';
+                document.getElementById('wrongCount').innerHTML = `(${wrongAnswers.length} сұрақ)`;
+                
+                const container = document.getElementById('wrongAnswersList');
+                container.innerHTML = wrongAnswers.map((ans, idx) => `
+                    <div class="wrong-question">
+                        <div class="wrong-question-text">
+                            ${idx + 1}. ${escapeHtml(ans.questionText)}
+                        </div>
+                        <div class="answer-details">
+                            <span class="user-answer">
+                                ❌ Сіздің жауап: ${ans.userAnswer ? escapeHtml(ans.userAnswer) : 'Жауап жоқ'}
+                            </span>
+                            <span class="correct-answer">
+                                ✅ Дұрыс жауап: ${escapeHtml(ans.correctAnswer)}
+                            </span>
+                        </div>
+                    </div>
+                `).join('');
+            } else if (data.correctCount === data.totalQuestions) {
+                // Барлық жауап дұрыс
+                document.getElementById('wrongAnswersCard').style.display = 'block';
+                document.getElementById('wrongCount').innerHTML = `(0 қате)`;
+                document.getElementById('wrongAnswersList').innerHTML = `
+                    <div style="text-align:center; padding:30px; color:#22c55e;">
+                        🎉 Керемет! Барлық сұрақтарға дұрыс жауап бердіңіз! 🎉
+                    </div>
+                `;
+            }
+            
+            // Дыбыс эффектісі
+            const audio = new Audio('/sounds/results.mp3');
+            audio.play().catch(e => console.log('Дыбыс ойнату қатесі:', e));
+        }
+
+        function goHome() {
+            // Жергілікті сақталған деректерді тазалау
+            localStorage.removeItem('sessionCode');
+            localStorage.removeItem('participantName');
+            localStorage.removeItem('participantId');
+            localStorage.removeItem('currentIndex_' + sessionCode);
+            localStorage.removeItem('userAnswers_' + sessionCode);
+            localStorage.removeItem('testResult_' + sessionCode);
+            window.location.href = '/';
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+    </script>
+</body>
+</html>

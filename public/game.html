@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rahoot | Ойын</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Rahoot стиліндегі анимациялық фон */
+        .game-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 0;
+        }
+
+        .game-bg::before {
+            content: '';
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 20% 40%, rgba(102,126,234,0.15) 0%, transparent 50%);
+            animation: bgPulse 8s infinite ease-in-out;
+        }
+
+        @keyframes bgPulse {
+            0%, 100% { opacity: 0.5; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.1); }
+        }
+
+        .game-container {
+            position: relative;
+            z-index: 10;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        /* Header */
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 25px;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 60px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .player-info {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 20px;
+            border-radius: 40px;
+            color: white;
+            font-weight: 600;
+        }
+
+        .question-counter {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 20px;
+            border-radius: 40px;
+            color: white;
+            font-weight: 700;
+        }
+
+        .timer-container {
+            background: rgba(0,0,0,0.5);
+            padding: 8px 20px;
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .timer-circle {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.3rem;
+            color: #333;
+            transition: all 0.1s ease;
+        }
+
+        .timer-warning {
+            animation: timerWarning 0.5s infinite;
+        }
+
+        @keyframes timerWarning {
+            0%, 100% { background: white; color: #333; }
+            50% { background: #ef4444; color: white; }
+        }
+
+        /* Сұрақ карточкасы */
+        .question-card {
+            background: white;
+            border-radius: 40px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            animation: slideIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .question-text {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #333;
+            line-height: 1.4;
+            margin-bottom: 20px;
+        }
+
+        .question-media {
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .question-media img, .question-media video {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 20px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        /* Жауап опциялары - динамикалық тор (4-тен көп) */
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .option-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 20px;
+            padding: 18px 20px;
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .option-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .option-btn:hover::before {
+            left: 100%;
+        }
+
+        .option-btn:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 10px 25px rgba(102,126,234,0.4);
+        }
+
+        .option-btn.selected {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            transform: scale(1.02);
+        }
+
+        .option-prefix {
+            display: inline-block;
+            width: 35px;
+            height: 35px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 12px;
+            text-align: center;
+            line-height: 35px;
+            font-weight: 800;
+            margin-right: 15px;
+        }
+
+        /* Навигация кнопкалары */
+        .nav-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 25px;
+            gap: 15px;
+        }
+
+        .nav-btn {
+            padding: 14px 30px;
+            border: none;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .nav-btn-prev {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            backdrop-filter: blur(10px);
+        }
+
+        .nav-btn-next {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .nav-btn-next:disabled, .nav-btn-prev:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .nav-btn:hover:not(:disabled) {
+            transform: scale(1.05);
+        }
+
+        /* Прогресс бар */
+        .progress-section {
+            margin-top: 20px;
+        }
+
+        .progress-bar-container {
+            background: rgba(255,255,255,0.2);
+            border-radius: 20px;
+            height: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            background: linear-gradient(90deg, #22c55e, #16a34a);
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 20px;
+        }
+
+        @media (max-width: 700px) {
+            .options-grid { grid-template-columns: 1fr; }
+            .question-text { font-size: 1.2rem; }
+            .game-header { flex-direction: column; }
+            .option-btn { padding: 14px 16px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-bg"></div>
+    
+    <div class="game-container">
+        <div class="game-header">
+            <div class="player-info" id="playerNameDisplay"></div>
+            <div class="question-counter" id="questionCounter">Сұрақ 1 / 0</div>
+            <div class="timer-container">
+                <div class="timer-circle" id="timerDisplay">00</div>
+                <span style="color:white;">секунд</span>
+            </div>
+        </div>
+
+        <div class="question-card">
+            <div class="question-text" id="questionText">Сұрақ жүктелуде...</div>
+            <div class="question-media" id="questionMedia"></div>
+            <div class="options-grid" id="optionsContainer"></div>
+            
+            <div class="nav-buttons">
+                <button class="nav-btn nav-btn-prev" id="prevBtn" disabled>← Артқа</button>
+                <button class="nav-btn nav-btn-next" id="nextBtn">Келесі →</button>
+            </div>
+            
+            <div class="progress-section">
+                <div class="progress-bar-container">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Дыбыстарды жүктеу
+        let sounds = {};
+        const soundFiles = {
+            show: '/sounds/show.mp3',
+            boump: '/sounds/boump.mp3',
+            answersSound: '/sounds/answersSound.mp3',
+            three: '/sounds/three.mp3',
+            second: '/sounds/second.mp3',
+            first: '/sounds/first.mp3',
+            snearRoll: '/sounds/snearRoll.mp3'
+        };
+
+        function preloadSounds() {
+            for (const [name, url] of Object.entries(soundFiles)) {
+                const audio = new Audio(url);
+                audio.preload = 'auto';
+                sounds[name] = audio;
+            }
+        }
+        preloadSounds();
+
+        function playSound(name) {
+            if (sounds[name]) {
+                sounds[name].currentTime = 0;
+                sounds[name].play().catch(e => console.log('Дыбыс ойнату қатесі:', e));
+            }
+        }
+
+        let socket = null;
+        let sessionCode = localStorage.getItem('sessionCode');
+        let participantName = localStorage.getItem('participantName');
+        let questions = [];
+        let userAnswers = [];
+        let currentIndex = 0;
+        let totalQuestions = 0;
+        let timeLimit = 30;
+        let timerInterval = null;
+        let timeLeft = 0;
+        let answerLocked = false;
+
+        if (!sessionCode || !participantName) {
+            window.location.href = '/';
+        }
+
+        document.getElementById('playerNameDisplay').innerHTML = participantName;
+
+        function connectSocket() {
+            socket = io();
+            
+            socket.on('connect', () => {
+                console.log('Қосылды');
+                socket.emit('participant-join', { 
+                    sessionCode: sessionCode, 
+                    name: participantName,
+                    participantId: localStorage.getItem('participantId')
+                });
+            });
+            
+            socket.on('join-success', (data) => {
+                totalQuestions = data.totalQuestions;
+                document.getElementById('testNameDisplay').innerHTML = data.testName;
+                document.getElementById('questionCounter').innerHTML = `Сұрақ 1 / ${totalQuestions}`;
+                
+                // Сақталған жауаптарды қалпына келтіру
+                const savedAnswers = localStorage.getItem('userAnswers_' + sessionCode);
+                if (savedAnswers) {
+                    userAnswers = JSON.parse(savedAnswers);
+                } else {
+                    userAnswers = new Array(totalQuestions).fill(null);
+                }
+                
+                const savedIndex = localStorage.getItem('currentIndex_' + sessionCode);
+                if (savedIndex && parseInt(savedIndex) < totalQuestions) {
+                    currentIndex = parseInt(savedIndex);
+                }
+                
+                loadCurrentQuestion();
+            });
+            
+            socket.on('question-data', (data) => {
+                if (questions[data.index]) return;
+                questions[data.index] = data;
+                timeLimit = data.timeLimit || 30;
+                
+                if (data.index === currentIndex) {
+                    displayQuestion(data);
+                }
+            });
+            
+            socket.on('next-question', (data) => {
+                currentIndex = data.index;
+                localStorage.setItem('currentIndex_' + sessionCode, currentIndex);
+                loadCurrentQuestion();
+            });
+            
+            socket.on('test-result', (data) => {
+                if (timerInterval) clearInterval(timerInterval);
+                localStorage.setItem('testResult_' + sessionCode, JSON.stringify(data));
+                window.location.href = '/result/' + sessionCode;
+            });
+            
+            socket.on('join-error', (msg) => {
+                alert(msg);
+                window.location.href = '/';
+            });
+        }
+        
+        function loadCurrentQuestion() {
+            if (currentIndex >= totalQuestions) {
+                finishTest();
+                return;
+            }
+            
+            if (questions[currentIndex]) {
+                displayQuestion(questions[currentIndex]);
+            } else {
+                document.getElementById('questionText').innerHTML = 'Сұрақ жүктелуде...';
+                document.getElementById('optionsContainer').innerHTML = '<div style="text-align:center; padding:40px;">⏳ Жүктелуде...</div>';
+                socket.emit('get-question', { sessionCode: sessionCode, index: currentIndex });
+            }
+            
+            updateProgress();
+        }
+        
+        function displayQuestion(q) {
+            playSound('show');
+            
+            document.getElementById('questionText').innerHTML = q.text;
+            document.getElementById('questionCounter').innerHTML = `Сұрақ ${currentIndex + 1} / ${totalQuestions}`;
+            
+            // Медиа контент
+            const mediaContainer = document.getElementById('questionMedia');
+            mediaContainer.innerHTML = '';
+            if (q.image) {
+                const img = document.createElement('img');
+                img.src = q.image;
+                img.alt = 'Сурет';
+                mediaContainer.appendChild(img);
+            }
+            if (q.video) {
+                const video = document.createElement('video');
+                video.src = q.video;
+                video.controls = true;
+                video.autoplay = false;
+                mediaContainer.appendChild(video);
+            }
+            if (q.audio) {
+                const audio = document.createElement('audio');
+                audio.src = q.audio;
+                audio.controls = true;
+                mediaContainer.appendChild(audio);
+            }
+            
+            // Жауап опциялары (кез келген санда)
+            const container = document.getElementById('optionsContainer');
+            const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+            
+            container.innerHTML = q.options.map((opt, i) => `
+                <button class="option-btn ${userAnswers[currentIndex] === i ? 'selected' : ''}" 
+                        onclick="selectAnswer(${i})"
+                        data-opt-index="${i}">
+                    <span class="option-prefix">${letters[i] || (i+1)}</span>
+                    ${escapeHtml(opt)}
+                </button>
+            `).join('');
+            
+            answerLocked = false;
+            startTimer();
+            
+            // Навигация кнопкалары
+            document.getElementById('prevBtn').disabled = currentIndex === 0;
+            const nextBtn = document.getElementById('nextBtn');
+            if (currentIndex === totalQuestions - 1) {
+                nextBtn.innerHTML = '✅ Аяқтау';
+            } else {
+                nextBtn.innerHTML = 'Келесі →';
+            }
+        }
+        
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            timeLeft = timeLimit;
+            updateTimerDisplay();
+            
+            timerInterval = setInterval(() => {
+                if (timeLeft <= 1) {
+                    clearInterval(timerInterval);
+                    if (!answerLocked && userAnswers[currentIndex] === null) {
+                        // Уақыт бітті, жауап жоқ
+                        playSound('boump');
+                        selectAnswer(-1); // Жауап жоқ
+                    }
+                } else {
+                    timeLeft--;
+                    updateTimerDisplay();
+                    
+                    // Дыбыс эффектілері (3,2,1 секунд қалғанда)
+                    if (timeLeft === 3) playSound('three');
+                    else if (timeLeft === 2) playSound('second');
+                    else if (timeLeft === 1) playSound('first');
+                }
+            }, 1000);
+        }
+        
+        function updateTimerDisplay() {
+            const timerEl = document.getElementById('timerDisplay');
+            timerEl.innerHTML = timeLeft.toString().padStart(2, '0');
+            if (timeLeft <= 5) {
+                timerEl.classList.add('timer-warning');
+            } else {
+                timerEl.classList.remove('timer-warning');
+            }
+        }
+        
+        function selectAnswer(answerIndex) {
+            if (answerLocked) return;
+            if (userAnswers[currentIndex] !== null) return;
+            
+            answerLocked = true;
+            if (timerInterval) clearInterval(timerInterval);
+            
+            if (answerIndex !== -1) {
+                userAnswers[currentIndex] = answerIndex;
+                playSound('answersSound');
+                
+                // Жауапты белгілеу
+                const buttons = document.querySelectorAll('.option-btn');
+                buttons.forEach((btn, idx) => {
+                    if (idx === answerIndex) {
+                        btn.classList.add('selected');
+                    }
+                });
+            } else {
+                playSound('boump');
+            }
+            
+            // Жауапты серверге жіберу
+            socket.emit('submit-answer', {
+                sessionCode: sessionCode,
+                questionIndex: currentIndex,
+                answerIndex: answerIndex !== -1 ? answerIndex : null,
+                timeSpent: timeLimit - timeLeft
+            });
+            
+            // Жауаптарды сақтау
+            localStorage.setItem('userAnswers_' + sessionCode, JSON.stringify(userAnswers));
+            
+            // 1 секундтан кейін келесі сұраққа өту
+            setTimeout(() => {
+                if (currentIndex === totalQuestions - 1) {
+                    finishTest();
+                } else {
+                    currentIndex++;
+                    localStorage.setItem('currentIndex_' + sessionCode, currentIndex);
+                    loadCurrentQuestion();
+                }
+            }, 800);
+        }
+        
+        function finishTest() {
+            if (timerInterval) clearInterval(timerInterval);
+            socket.emit('finish-test', { sessionCode: sessionCode });
+        }
+        
+        function updateProgress() {
+            const answered = userAnswers.filter(a => a !== null).length;
+            const percent = (answered / totalQuestions) * 100;
+            document.getElementById('progressFill').style.width = `${percent}%`;
+        }
+        
+        // Навигация кнопкалары
+        document.getElementById('prevBtn').onclick = () => {
+            if (currentIndex > 0) {
+                currentIndex--;
+                localStorage.setItem('currentIndex_' + sessionCode, currentIndex);
+                loadCurrentQuestion();
+            }
+        };
+        
+        document.getElementById('nextBtn').onclick = () => {
+            if (userAnswers[currentIndex] === null) {
+                alert('Жауап таңдаңыз!');
+                return;
+            }
+            
+            if (currentIndex === totalQuestions - 1) {
+                finishTest();
+            } else {
+                currentIndex++;
+                localStorage.setItem('currentIndex_' + sessionCode, currentIndex);
+                loadCurrentQuestion();
+            }
+        };
+        
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+        
+        connectSocket();
+        
+        // Бетті жапқанда прогресс сақталады
+        window.addEventListener('beforeunload', () => {
+            localStorage.setItem('userAnswers_' + sessionCode, JSON.stringify(userAnswers));
+            localStorage.setItem('currentIndex_' + sessionCode, currentIndex);
+        });
+    </script>
+</body>
+</html>
