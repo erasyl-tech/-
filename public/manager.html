@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Менеджер панелі</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>👨‍💼 Менеджер панелі</h1>
+            
+            <div id="loginSection">
+                <h2>Кіру</h2>
+                <div class="form-group">
+                    <label for="managerPassword">Пароль:</label>
+                    <input type="password" id="managerPassword" placeholder="Пароль енгізіңіз">
+                </div>
+                <button onclick="login()" class="btn btn-primary">Кіру</button>
+            </div>
+            
+            <div id="managerPanel" style="display:none;">
+                <div class="tabs">
+                    <button class="tab-btn active" onclick="showTab('create')">📝 Ойын құру</button>
+                    <button class="tab-btn" onclick="showTab('control')">🎮 Ойынды басқару</button>
+                    <button class="tab-btn" onclick="showTab('stats')">📊 Статистика</button>
+                </div>
+                
+                <div id="createTab" class="tab-content">
+                    <h2>Жаңа ойын құру</h2>
+                    <form id="createGameForm">
+                        <div class="form-group">
+                            <label>Тест файлы (.txt):</label>
+                            <input type="file" id="questionFile" accept=".txt" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Сұрақтар диапазоны:</label>
+                            <select id="questionsRange">
+                                <option value="all">Барлық сұрақтар</option>
+                                <option value="random">Кездейсоқ</option>
+                                <option value="range">Диапазон (мысалы: 1-100)</option>
+                            </select>
+                            <input type="text" id="rangeValue" placeholder="1-100" style="display:none; margin-top:5px;">
+                            <input type="number" id="randomCount" placeholder="Сұрақ саны" value="50" style="display:none; margin-top:5px;">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="shuffleQuestions"> Сұрақтарды араластыру
+                            </label>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="shuffleAnswers"> Жауаптарды араластыру
+                            </label>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Уақыт шектеуі (секунд):</label>
+                            <input type="number" id="timeLimit" value="30" min="5" max="120">
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">🚀 Ойын құру</button>
+                    </form>
+                    
+                    <div id="gameCreated" style="display:none; margin-top:20px; padding:15px; background:#f0f0f0; border-radius:10px;">
+                        <h3>✅ Ойын құрылды!</h3>
+                        <p><strong>Ойын коды:</strong> <span id="gameCodeDisplay"></span></p>
+                        <p><strong>QR код:</strong></p>
+                        <img id="qrCodeImg" style="max-width:200px;">
+                        <p><strong>Сілтеме:</strong> <a id="gameUrl" target="_blank"></a></p>
+                        <button onclick="copyGameCode()" class="btn btn-secondary">Кодты көшіру</button>
+                        <button onclick="startGame()" class="btn btn-success">🎮 Ойынды бастау</button>
+                    </div>
+                </div>
+                
+                <div id="controlTab" class="tab-content" style="display:none;">
+                    <h2>Ойынды басқару</h2>
+                    <div class="form-group">
+                        <label>Ойын коды:</label>
+                        <input type="text" id="controlGameCode" placeholder="Ойын коды">
+                        <button onclick="loadGameControl()" class="btn btn-secondary">Жүктеу</button>
+                    </div>
+                    
+                    <div id="gameControlPanel" style="display:none; margin-top:20px;">
+                        <div id="gameInfo"></div>
+                        <button onclick="nextQuestion()" class="btn btn-primary">➡️ Келесі сұрақ</button>
+                        <button onclick="endGame()" class="btn btn-danger">⛔ Ойынды аяқтау</button>
+                    </div>
+                </div>
+                
+                <div id="statsTab" class="tab-content" style="display:none;">
+                    <h2>Ойын статистикасы</h2>
+                    <div class="form-group">
+                        <label>Ойын коды:</label>
+                        <input type="text" id="statsGameCode" placeholder="Ойын коды">
+                        <button onclick="loadStats()" class="btn btn-secondary">Көрсету</button>
+                    </div>
+                    <div id="statsDisplay"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentGameId = null;
+        let currentManagerCode = null;
+        let currentQuestionIndex = 0;
+        let totalQuestions = 0;
+        
+        function login() {
+            const password = document.getElementById('managerPassword').value;
+            if (password === 'admin123') {
+                document.getElementById('loginSection').style.display = 'none';
+                document.getElementById('managerPanel').style.display = 'block';
+            } else {
+                alert('Қате пароль!');
+            }
+        }
+        
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.style.display = 'none');
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            
+            document.getElementById(`${tabName}Tab`).style.display = 'block';
+            event.target.classList.add('active');
+        }
+        
+        document.getElementById('questionsRange').addEventListener('change', (e) => {
+            const rangeValue = document.getElementById('rangeValue');
+            const randomCount = document.getElementById('randomCount');
+            if (e.target.value === 'range') {
+                rangeValue.style.display = 'block';
+                randomCount.style.display = 'none';
+            } else if (e.target.value === 'random') {
+                rangeValue.style.display = 'none';
+                randomCount.style.display = 'block';
+            } else {
+                rangeValue.style.display = 'none';
+                randomCount.style.display = 'none';
+            }
+        });
+        
+        document.getElementById('createGameForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append('questionFile', document.getElementById('questionFile').files[0]);
+            formData.append('questionsRange', document.getElementById('questionsRange').value);
+            formData.append('shuffleQuestions', document.getElementById('shuffleQuestions').checked);
+            formData.append('shuffleAnswers', document.getElementById('shuffleAnswers').checked);
+            formData.append('timeLimit', document.getElementById('timeLimit').value);
+            
+            const rangeValue = document.getElementById('rangeValue');
+            if (rangeValue.style.display === 'block') {
+                formData.append('questionsRange', rangeValue.value);
+            }
+            
+            const randomCount = document.getElementById('randomCount');
+            if (randomCount.style.display === 'block') {
+                formData.append('randomCount', randomCount.value);
+            }
+            
+            const response = await fetch('/api/create-game', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                currentGameId = data.gameId;
+                currentManagerCode = data.managerCode;
+                document.getElementById('gameCodeDisplay').textContent = data.gameId;
+                document.getElementById('qrCodeImg').src = data.qrCode;
+                document.getElementById('gameUrl').href = data.gameUrl;
+                document.getElementById('gameUrl').textContent = data.gameUrl;
+                document.getElementById('gameCreated').style.display = 'block';
+                
+                localStorage.setItem('managerCode', data.managerCode);
+                localStorage.setItem('currentGameId', data.gameId);
+            } else {
+                alert('Қате: ' + data.message);
+            }
+        });
+        
+        function copyGameCode() {
+            navigator.clipboard.writeText(currentGameId);
+            alert('Код көшірілді: ' + currentGameId);
+        }
+        
+        async function startGame() {
+            const response = await fetch('/api/start-game', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gameId: currentGameId, managerCode: currentManagerCode })
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                alert('Ойын басталды!');
+                showTab('control');
+                document.getElementById('controlGameCode').value = currentGameId;
+                loadGameControl();
+            } else {
+                alert('Қате: ' + data.message);
+            }
+        }
+        
+        async function loadGameControl() {
+            const gameId = document.getElementById('controlGameCode').value;
+            const response = await fetch(`/api/check-game-status/${gameId}`);
+            const data = await response.json();
+            
+            if (data.success && data.status === 'active') {
+                document.getElementById('gameControlPanel').style.display = 'block';
+                document.getElementById('gameInfo').innerHTML = `<p>Ойын статусы: Активті</p>`;
+                currentGameId = gameId;
+                currentManagerCode = localStorage.getItem('managerCode');
+            } else {
+                alert('Ойын табылмады немесе басталмаған');
+            }
+        }
+        
+        async function nextQuestion() {
+            const response = await fetch('/api/check-game-status/' + currentGameId);
+            const data = await response.json();
+            
+            if (data.success) {
+                const socket = io();
+                socket.emit('next-question', {
+                    gameId: currentGameId,
+                    managerCode: currentManagerCode,
+                    questionIndex: data.currentQuestion
+                });
+                socket.disconnect();
+                alert('Келесі сұрақ жіберілді');
+            }
+        }
+        
+        async function endGame() {
+            if (confirm('Ойынды аяқтау керек пе?')) {
+                const response = await fetch('/api/end-game', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ gameId: currentGameId, managerCode: currentManagerCode })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    alert('Ойын аяқталды!');
+                } else {
+                    alert('Қате: ' + data.message);
+                }
+            }
+        }
+        
+        async function loadStats() {
+            const gameId = document.getElementById('statsGameCode').value;
+            const response = await fetch(`/api/game-stats/${gameId}`);
+            const data = await response.json();
+            
+            if (data.success && data.stats) {
+                let html = '<h3>Ойыншылар статистикасы:</h3>';
+                html += '<table class="stats-table"><tr><th>Орын</th><th>Аты</th><th>Ұпай</th><th>Дұрыс</th><th>Қате</th></tr>';
+                
+                data.stats.forEach(player => {
+                    html += `<tr>
+                        <td>${player.rank}</td>
+                        <td>${player.name}</td>
+                        <td>${player.score}</td>
+                        <td style="color:green">${player.correctCount}</td>
+                        <td style="color:red">${player.wrongCount}</td>
+                    </tr>`;
+                });
+                
+                html += '</table>';
+                document.getElementById('statsDisplay').innerHTML = html;
+            } else {
+                document.getElementById('statsDisplay').innerHTML = '<p>Статистика жоқ</p>';
+            }
+        }
+    </script>
+</body>
+</html>
