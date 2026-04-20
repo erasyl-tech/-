@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Game - Код енгізу</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>🎮 Quiz Game</h1>
+            <p>Ойын кодын енгізіңіз</p>
+            <form id="joinForm">
+                <div class="form-group">
+                    <label for="gameCode">Ойын коды:</label>
+                    <input type="text" id="gameCode" placeholder="Мысалы: ABC123" maxlength="6" required>
+                </div>
+                <div class="form-group">
+                    <label for="playerName">Атыңыз:</label>
+                    <input type="text" id="playerName" placeholder="Атыңызды енгізіңіз" required>
+                </div>
+                <button type="submit" class="btn btn-primary">🎮 Ойынға кіру</button>
+            </form>
+            <div id="errorMessage" class="error-message" style="display:none;"></div>
+        </div>
+    </div>
+    <script>
+        document.getElementById('joinForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const gameCode = document.getElementById('gameCode').value.toUpperCase().trim();
+            const playerName = document.getElementById('playerName').value.trim();
+            
+            if (!gameCode || !playerName) {
+                showError('Барлық өрістерді толтырыңыз');
+                return;
+            }
+            
+            const response = await fetch('/api/join-game', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gameCode, playerName })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                localStorage.setItem('playerId', data.playerId);
+                localStorage.setItem('playerName', playerName);
+                localStorage.setItem('gameCode', data.gameCode);
+                window.location.href = `/game/${data.gameCode}`;
+            } else {
+                showError(data.message);
+            }
+        });
+        
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => errorDiv.style.display = 'none', 3000);
+        }
+    </script>
+</body>
+</html>

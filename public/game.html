@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Game - Ойын</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+    <div class="game-container">
+        <div id="waitingScreen" class="waiting-screen">
+            <div class="card">
+                <h1>🎮 Ойын күтуде...</h1>
+                <div class="loader"></div>
+                <p>Менеджер ойынды бастағанша күтіңіз</p>
+                <p>Ойын коды: <strong id="gameCodeDisplay"></strong></p>
+                <p>Ойыншы: <strong id="playerNameDisplay"></strong></p>
+            </div>
+        </div>
+        
+        <div id="gameScreen" style="display:none;">
+            <div class="game-header">
+                <div class="score">Ұпай: <span id="score">0</span></div>
+                <div class="question-counter">Сұрақ <span id="currentQ">1</span>/<span id="totalQ">0</span></div>
+                <div class="timer">⏱️ <span id="timer">0</span>с</div>
+            </div>
+            
+            <div class="question-card">
+                <h2 id="questionText">Жүктелуде...</h2>
+                <div id="answersContainer" class="answers-grid"></div>
+            </div>
+        </div>
+        
+        <div id="leaderboard" class="leaderboard">
+            <h3>🏆 ТОП 5</h3>
+            <div id="leaderboardList"></div>
+        </div>
+        
+        <div id="resultScreen" style="display:none;" class="result-screen">
+            <div class="card">
+                <h1>🎉 Ойын аяқталды!</h1>
+                <div id="finalStats"></div>
+                <button onclick="location.reload()" class="btn btn-primary">Жаңа ойын</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const gameCode = window.location.pathname.split('/')[2];
+        const playerId = localStorage.getItem('playerId');
+        const playerName = localStorage.getItem('playerName');
+        let socket = null;
+        let currentQuestions = [];
+        let currentQuestionIndex = 0;
+        let totalQuestions = 0;
+        let playerScore = 0;
+        let timeLeft = 0;
+        let timerInterval = null;
+        let canAnswer = true;
+        let questionStartTime = 0;
+        let gameSettings = { timeLimit: 30 };
+        
+        document.getElementById('gameCodeDisplay').textContent = gameCode;
+        document.getElementById('playerNameDisplay').textContent = playerName;
+        
+        if (!playerId || !playerName) {
+            window.location.href = '/';
+        }
+        
+        function connectSocket() {
+            socket = io();
+            
+            socket.on('connect', () => {
+                console.log('Socket қосылды');
+                socket.emit('join-game-room', gameCode);
+            });
+            
+            socket.on('game-status', (data) => {
+                if (data.status === 'active') {
+                    document.getElementById('waitingScreen').style.display = 'none';
+                }
+            });
+            
+            socket.on('game-started', (data) => {
+                currentQuestions = data.questions;
+                totalQuestions = data.settings.totalQuestions;
+                gameSettings = data.settings;
+                playerScore = 0;
+                currentQuestionIndex = 0;
+                document.getElementById('score').textContent = '0';
+                document.getElementById('totalQ').textContent = totalQuestions;
+                document.getElementById('waitingScreen').style.display = 'none';
+                document.getElementById('gameScreen').style.display = 'block';
+                showNextQuestion();
+            });
+            
+            socket.on('new-question', (data) => {
+                showQuestion(data.question, data.questionNumber, data.totalQuestions, data.timeLimit);
+            });
+            
+            socket.on('leaderboard-update', (data) => {
+                updateLeaderboard(data);
+            });
+            
+            socket.on('game-ended', () => {
+                showResults();
+            });
+        }
+        
+        function showNextQuestion() {
+            if (currentQuestionIndex < totalQuestions) {
+                const question = currentQuestions[currentQuestionIndex];
+                showQuestion(question, currentQuestionIndex + 1, totalQuestions, gameSettings.timeLimit || 30);
+            }
+        }
+        
+        function showQuestion(question, qNumber, total, timeLimit) {
+            canAnswer = true;
+            document.getElementById('questionText').textContent = question.text;
+            document.getElementById('currentQ').textContent = qNumber;
+            document.getElementById('totalQ').textContent = total;
+            
+            const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7B731'];
+            const answersContainer = document.getElementById('answersContainer');
+            answersContainer.innerHTML = '';
+            
+            question.answers.forEach((answer, index) => {
+                const button = document.createElement('button');
+                button.className = 'answer-btn';
+                button.textContent = answer;
+                button.style.backgroundColor = colors[index % colors.length];
+                button.onclick = () => submitAnswer(answer, index);
+                answersContainer.appendChild(button);
+            });
+            
+            timeLeft = timeLimit;
+            document.getElementById('timer').textContent = timeLeft;
+            
+            if (timerInterval) clearInterval(timerInterval);
+            questionStartTime = Date.now();
+            
+            timerInterval = setInterval(() => {
+                if (timeLeft > 0 && canAnswer) {
+                    timeLeft--;
+                    document.getElementById('timer').textContent = timeLeft;
+                    if (timeLeft === 0) {
+                        clearInterval(timerInterval);
+                        if (canAnswer) {
+                            submitAnswer(null, -1);
+                        }
+                    }
+                }
+            }, 1000);
+        }
+        
+        async function submitAnswer(answer, answerIndex) {
+            if (!canAnswer) return;
+            canAnswer = false;
+            clearInterval(timerInterval);
+            
+            const timeTaken = (Date.now() - questionStartTime) / 1000;
+            const response = await fetch('/api/submit-answer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    playerId: playerId,
+                    gameId: gameCode,
+                    questionIndex: currentQuestionIndex,
+                    answer: answer,
+                    timeTaken: timeTaken
+                })
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                playerScore += data.points;
+                document.getElementById('score').textContent = playerScore;
+                
+                const buttons = document.querySelectorAll('.answer-btn');
+                buttons.forEach(btn => btn.disabled = true);
+                
+                setTimeout(() => {
+                    currentQuestionIndex++;
+                    if (currentQuestionIndex < totalQuestions) {
+                        showNextQuestion();
+                    }
+                }, 2000);
+            }
+        }
+        
+        function updateLeaderboard(players) {
+            const leaderboardList = document.getElementById('leaderboardList');
+            leaderboardList.innerHTML = '';
+            players.forEach((player, index) => {
+                const div = document.createElement('div');
+                div.className = 'leaderboard-item';
+                div.innerHTML = `
+                    <span class="rank">${index + 1}</span>
+                    <span class="name">${player.player_name}</span>
+                    <span class="score">${player.score} ұпай</span>
+                `;
+                leaderboardList.appendChild(div);
+            });
+        }
+        
+        async function showResults() {
+            document.getElementById('gameScreen').style.display = 'none';
+            const response = await fetch(`/api/game-stats/${gameCode}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                const myStats = data.stats.find(s => s.name === playerName);
+                let html = `<h2>Сіздің нәтижеңіз:</h2>`;
+                html += `<p>🏆 Орын: ${myStats.rank}</p>`;
+                html += `<p>⭐ Ұпай: ${myStats.score}</p>`;
+                html += `<p>✅ Дұрыс жауаптар: ${myStats.correctCount}</p>`;
+                html += `<p>❌ Қате жауаптар: ${myStats.wrongCount}</p>`;
+                
+                if (myStats.answers && myStats.answers.length > 0) {
+                    html += `<h3>Жауаптар тарихы:</h3><ul>`;
+                    myStats.answers.forEach((ans, i) => {
+                        const status = ans.isCorrect ? '✅' : '❌';
+                        html += `<li>${status} ${ans.questionText} - ${ans.isCorrect ? '+' + ans.points : '0'} ұпай</li>`;
+                    });
+                    html += `</ul>`;
+                }
+                
+                document.getElementById('finalStats').innerHTML = html;
+                document.getElementById('resultScreen').style.display = 'block';
+            }
+        }
+        
+        connectSocket();
+    </script>
+</body>
+</html>
